@@ -59,15 +59,14 @@ on:
 jobs:
   provision-vm:
     name: "Provision ${{ github.event.inputs.vm_name }} for ${{ github.event.inputs.environment }}"
-    runs-on: ubuntu-latest  # GitHub gives us a free Ubuntu server to run on
+    # WHY self-hosted: This job runs ON your company laptop which is already
+    # logged into Azure via 'az login'. No Service Principal needed!
+    # The runner agent on your laptop listens for jobs from GitHub and runs them.
+    runs-on: self-hosted
 
-    # These are like environment variables inside this job.
-    # We use GitHub Secrets for sensitive values (set in repo Settings → Secrets)
-    env:
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    # WHY no ARM_* env vars here: Because Terraform automatically detects
+    # your existing 'az login' session on the self-hosted runner machine.
+    # No credentials need to be stored anywhere!
 
     steps:
       # -----------------------------------------------------------------------
@@ -96,13 +95,13 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------------------
-      # STEP 3: Install Terraform on the GitHub Actions server
-      # WHY: Terraform is not pre-installed. We install it fresh every run.
+      # STEP 3: Verify Terraform is installed on your company laptop runner
+      # WHY: Unlike GitHub's cloud servers, YOUR laptop keeps Terraform installed
+      # permanently. We just verify it's there and print the version.
+      # (You install Terraform once on the company laptop — not every run!)
       # -----------------------------------------------------------------------
-      - name: "🔧 Install Terraform"
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.9.0"
+      - name: "🔧 Verify Terraform Installation"
+        run: terraform version
 
       # -----------------------------------------------------------------------
       # STEP 4: Initialize Terraform
@@ -121,6 +120,8 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "📝 Terraform Plan"
         working-directory: ./terraform
+        # WHY shell: bash — ensures consistent syntax on Windows runner via Git Bash
+        shell: bash
         run: |
           terraform plan \
             -var="vm_name=${{ github.event.inputs.vm_name }}" \
@@ -128,7 +129,7 @@ jobs:
             -var="os_type=${{ github.event.inputs.os_type }}" \
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="owner_email=${{ github.event.inputs.owner_email }}" \
-            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="subscription_id=4174b680-aefa-4c09-993c-a4ff4672ec6b" \
             -var="ssh_public_key=${{ secrets.VM_SSH_PUBLIC_KEY }}" \
             -out=tfplan
 
@@ -148,6 +149,7 @@ jobs:
       - name: "🌐 Get VM Public IP"
         working-directory: ./terraform
         id: get_ip
+        shell: bash
         run: |
           VM_IP=$(terraform output -raw public_ip_address)
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
