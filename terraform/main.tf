@@ -181,10 +181,11 @@ resource "azurerm_linux_virtual_machine" "main" {
   network_interface_ids = [azurerm_network_interface.main.id]
 
   # SSH Key Authentication (no password login — more secure!)
-  # The public key comes from a GitHub Secret we will add later.
+  # WHY a variable: GitHub Actions writes the key from a Secret into this variable.
+  # We can't use file() here because GitHub's server won't have a local file.
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("${path.module}/ssh_key.pub")
+    public_key = var.ssh_public_key
   }
 
   # The disk the OS is installed on

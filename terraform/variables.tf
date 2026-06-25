@@ -53,3 +53,9 @@ variable "location" {
   type        = string
   default     = "East US"
 }
+
+variable "ssh_public_key" {
+  description = "SSH public key content for VM access (passed from GitHub Secret)"
+  type        = string
+  sensitive   = true  # Won't be printed in Terraform logs
+}

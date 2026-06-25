@@ -129,6 +129,7 @@ jobs:
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="owner_email=${{ github.event.inputs.owner_email }}" \
             -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="ssh_public_key=${{ secrets.VM_SSH_PUBLIC_KEY }}" \
             -out=tfplan
 
       # -----------------------------------------------------------------------
