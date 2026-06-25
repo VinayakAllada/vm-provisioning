@@ -1,0 +1,162 @@
+# =============================================================================
+# Azure VM Provisioning Workflow
+# =============================================================================
+# 
+# WHAT THIS FILE IS:
+# This is a GitHub Actions "workflow". It's a recipe that GitHub follows
+# step-by-step to build an Azure Virtual Machine automatically.
+#
+# HOW IT GETS TRIGGERED:
+# Our Node.js backend calls the GitHub API (workflow_dispatch), which wakes
+# up this workflow and passes the VM details as "inputs" (like function args).
+#
+# WHY NOT JUST RUN TERRAFORM LOCALLY?
+# Running it here means ANYONE in the team can order a VM from ServiceNow
+# and it builds automatically - no human has to open a laptop and type commands!
+# =============================================================================
+
+name: Provision Azure Virtual Machine
+
+# TRIGGER: workflow_dispatch means "only run when someone explicitly calls you via API"
+# The 'inputs' block defines what information the caller (our backend) must provide.
+on:
+  workflow_dispatch:
+    inputs:
+      ritm_number:
+        description: 'ServiceNow RITM Number (e.g. RITM0010005)'
+        required: true
+        type: string
+      ritm_sys_id:
+        description: 'ServiceNow RITM Sys ID (for updating the ticket later)'
+        required: true
+        type: string
+      vm_name:
+        description: 'Name of the Virtual Machine to create'
+        required: true
+        type: string
+      vm_size:
+        description: 'Azure VM Size (e.g. Standard_B1s)'
+        required: true
+        type: string
+      os_type:
+        description: 'Operating System (e.g. ubuntu-22.04)'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment (dev/staging)'
+        required: true
+        type: string
+      owner_email:
+        description: 'Email of the person who requested the VM'
+        required: true
+        type: string
+      business_justification:
+        description: 'Reason for requesting the VM'
+        required: true
+        type: string
+
+# JOBS: The actual work. Each job runs on a fresh server at GitHub.
+jobs:
+  provision-vm:
+    name: "Provision ${{ github.event.inputs.vm_name }} for ${{ github.event.inputs.environment }}"
+    runs-on: ubuntu-latest  # GitHub gives us a free Ubuntu server to run on
+
+    # These are like environment variables inside this job.
+    # We use GitHub Secrets for sensitive values (set in repo Settings → Secrets)
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # STEP 1: Log all the inputs so we can see them in the GitHub Actions UI
+      # WHY: Makes it easy to debug. You can see exactly what ServiceNow sent.
+      # -----------------------------------------------------------------------
+      - name: "📋 Log Provisioning Request"
+        run: |
+          echo "============================================"
+          echo "🚀 New VM Provisioning Request Received!"
+          echo "============================================"
+          echo "RITM Number    : ${{ github.event.inputs.ritm_number }}"
+          echo "VM Name        : ${{ github.event.inputs.vm_name }}"
+          echo "VM Size        : ${{ github.event.inputs.vm_size }}"
+          echo "OS Type        : ${{ github.event.inputs.os_type }}"
+          echo "Environment    : ${{ github.event.inputs.environment }}"
+          echo "Owner Email    : ${{ github.event.inputs.owner_email }}"
+          echo "Justification  : ${{ github.event.inputs.business_justification }}"
+          echo "============================================"
+
+      # -----------------------------------------------------------------------
+      # STEP 2: Download your repo code onto the GitHub Actions server
+      # WHY: Without this, the server has no files. We need our Terraform code!
+      # -----------------------------------------------------------------------
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # STEP 3: Install Terraform on the GitHub Actions server
+      # WHY: Terraform is not pre-installed. We install it fresh every run.
+      # -----------------------------------------------------------------------
+      - name: "🔧 Install Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      # -----------------------------------------------------------------------
+      # STEP 4: Initialize Terraform
+      # WHY: Terraform needs to download the Azure provider plugin first.
+      #       Like doing 'npm install' before running a Node.js app.
+      # -----------------------------------------------------------------------
+      - name: "⚙️ Terraform Init"
+        working-directory: ./terraform
+        run: terraform init
+
+      # -----------------------------------------------------------------------
+      # STEP 5: Create a Terraform Plan
+      # WHY: Before actually creating anything, Terraform shows you a preview
+      #       of exactly what it WILL create. Like a "dry run". 
+      #       We pass the VM details as -var arguments.
+      # -----------------------------------------------------------------------
+      - name: "📝 Terraform Plan"
+        working-directory: ./terraform
+        run: |
+          terraform plan \
+            -var="vm_name=${{ github.event.inputs.vm_name }}" \
+            -var="vm_size=${{ github.event.inputs.vm_size }}" \
+            -var="os_type=${{ github.event.inputs.os_type }}" \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="owner_email=${{ github.event.inputs.owner_email }}" \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -out=tfplan
+
+      # -----------------------------------------------------------------------
+      # STEP 6: Apply the Terraform Plan (ACTUALLY BUILD THE VM!)
+      # WHY: This is the real deal. Terraform calls the Azure API and creates
+      #       the VNet, NIC, Public IP, and VM in Azure.
+      # -----------------------------------------------------------------------
+      - name: "🏗️ Terraform Apply (Build the VM!)"
+        working-directory: ./terraform
+        run: terraform apply -auto-approve tfplan
+
+      # -----------------------------------------------------------------------
+      # STEP 7: Get the public IP of the new VM
+      # WHY: We need the IP to give back to the user and for Ansible to SSH into.
+      # -----------------------------------------------------------------------
+      - name: "🌐 Get VM Public IP"
+        working-directory: ./terraform
+        id: get_ip
+        run: |
+          VM_IP=$(terraform output -raw public_ip_address)
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+          echo "✅ VM Created! Public IP: $VM_IP"
+
+      # -----------------------------------------------------------------------
+      # STEP 8: (Placeholder for Phase 6) Run Ansible to configure the VM
+      # We will fill this in during Phase 6!
+      # -----------------------------------------------------------------------
+      - name: "🤖 Configure VM with Ansible (Phase 6)"
+        run: |
+          echo "Ansible configuration will be added in Phase 6"
+          echo "Target VM IP: ${{ steps.get_ip.outputs.vm_ip }}"
