@@ -62,15 +62,15 @@ locals {
 }
 
 # =============================================================================
-# RESOURCE 1: Resource Group
+# RESOURCE GROUP: Use existing "internRG" (we don't create it, it already exists)
 # =============================================================================
-# WHY: In Azure, EVERYTHING must live inside a Resource Group.
-# It's like a "project folder" in Azure. When you delete the resource group,
-# it deletes everything inside it too.
-resource "azurerm_resource_group" "main" {
-  name     = "rg-${local.prefix}"   # e.g. rg-test-vm-01-staging
-  location = var.location
-  tags     = local.common_tags
+# WHY "data" instead of "resource":
+# - "resource" = Terraform CREATES something new
+# - "data"     = Terraform READS something that already exists
+# Your company only allows you to work inside "internRG", so we just
+# reference it rather than trying to create a new one (which would fail!).
+data "azurerm_resource_group" "main" {
+  name = "internRG"
 }
 
 # =============================================================================
@@ -83,8 +83,8 @@ resource "azurerm_resource_group" "main" {
 resource "azurerm_virtual_network" "main" {
   name                = "vnet-${local.prefix}"
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   tags                = local.common_tags
 }
 
@@ -95,7 +95,7 @@ resource "azurerm_virtual_network" "main" {
 # Our VM will sit on this subnet. 10.0.1.0/24 gives us 256 IP addresses.
 resource "azurerm_subnet" "main" {
   name                 = "subnet-${local.prefix}"
-  resource_group_name  = azurerm_resource_group.main.name
+  resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.0.1.0/24"]
 }
@@ -108,8 +108,8 @@ resource "azurerm_subnet" "main" {
 # and so Ansible can connect to it to install software.
 resource "azurerm_public_ip" "main" {
   name                = "pip-${local.prefix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   allocation_method   = "Static"   # Static = the IP doesn't change on restart
   sku                 = "Standard"
   tags                = local.common_tags
@@ -122,8 +122,8 @@ resource "azurerm_public_ip" "main" {
 # to the public IP. Without this, the VM has no network connection.
 resource "azurerm_network_interface" "main" {
   name                = "nic-${local.prefix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   tags                = local.common_tags
 
   ip_configuration {
@@ -142,8 +142,8 @@ resource "azurerm_network_interface" "main" {
 # Think of this as the firewall/bouncer at the door.
 resource "azurerm_network_security_group" "main" {
   name                = "nsg-${local.prefix}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   tags                = local.common_tags
 
   security_rule {
@@ -172,8 +172,8 @@ resource "azurerm_network_interface_security_group_association" "main" {
 # The admin_ssh_key block means we log in with SSH keys (more secure than passwords).
 resource "azurerm_linux_virtual_machine" "main" {
   name                = var.vm_name                        # e.g. "phase-5"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
   size                = var.vm_size                        # e.g. "Standard_B1s"
   admin_username      = "azureuser"                        # default Linux user
 
