@@ -120,17 +120,18 @@ jobs:
       # -----------------------------------------------------------------------
       - name: "📝 Terraform Plan"
         working-directory: ./terraform
-        # WHY shell: bash — ensures consistent syntax on Windows runner via Git Bash
-        shell: bash
+        # WHY pwsh: Runner is Windows, so we use PowerShell.
+        # PowerShell uses backtick (`) for line continuation, not backslash.
+        shell: pwsh
         run: |
-          terraform plan \
-            -var="vm_name=${{ github.event.inputs.vm_name }}" \
-            -var="vm_size=${{ github.event.inputs.vm_size }}" \
-            -var="os_type=${{ github.event.inputs.os_type }}" \
-            -var="environment=${{ github.event.inputs.environment }}" \
-            -var="owner_email=${{ github.event.inputs.owner_email }}" \
-            -var="subscription_id=4174b680-aefa-4c09-993c-a4ff4672ec6b" \
-            -var="ssh_public_key=${{ secrets.VM_SSH_PUBLIC_KEY }}" \
+          terraform plan `
+            -var="vm_name=${{ github.event.inputs.vm_name }}" `
+            -var="vm_size=${{ github.event.inputs.vm_size }}" `
+            -var="os_type=${{ github.event.inputs.os_type }}" `
+            -var="environment=${{ github.event.inputs.environment }}" `
+            -var="owner_email=${{ github.event.inputs.owner_email }}" `
+            -var="subscription_id=4174b680-aefa-4c09-993c-a4ff4672ec6b" `
+            -var="ssh_public_key=${{ secrets.VM_SSH_PUBLIC_KEY }}" `
             -out=tfplan
 
       # -----------------------------------------------------------------------
@@ -149,10 +150,10 @@ jobs:
       - name: "🌐 Get VM Public IP"
         working-directory: ./terraform
         id: get_ip
-        shell: bash
+        shell: pwsh
         run: |
-          VM_IP=$(terraform output -raw public_ip_address)
-          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+          $VM_IP = terraform output -raw public_ip_address
+          echo "vm_ip=$VM_IP" >> $env:GITHUB_OUTPUT
           echo "✅ VM Created! Public IP: $VM_IP"
 
       # -----------------------------------------------------------------------
