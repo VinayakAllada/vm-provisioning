@@ -173,12 +173,12 @@ jobs:
           icacls ansible_key.pem /inheritance:r
           icacls ansible_key.pem /grant "$($env:USERNAME):R"
 
-          # 3. Copy the playbook to the Ansible Controller
-          scp -o StrictHostKeyChecking=no -i ansible_key.pem ansible/playbook.yml azureuser@20.219.82.175:/home/azureuser/playbook.yml
+          # 3. Copy the playbook to the Ansible Controller (using Git's bundled scp)
+          & "C:\Program Files\Git\usr\bin\scp.exe" -o StrictHostKeyChecking=no -i ansible_key.pem ansible/playbook.yml azureuser@20.219.82.175:/home/azureuser/playbook.yml
 
-          # 4. SSH into the Controller and tell it to run ansible-playbook
+          # 4. SSH into the Controller and tell it to run ansible-playbook (using Git's bundled ssh)
           $VM_IP = "${{ steps.get_ip.outputs.vm_ip }}"
-          ssh -o StrictHostKeyChecking=no -i ansible_key.pem azureuser@20.219.82.175 "export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i `"$VM_IP,`" -u azureuser /home/azureuser/playbook.yml"
+          & "C:\Program Files\Git\usr\bin\ssh.exe" -o StrictHostKeyChecking=no -i ansible_key.pem azureuser@20.219.82.175 "export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i `"$VM_IP,`" -u azureuser /home/azureuser/playbook.yml"
 
           # 5. Clean up
           Remove-Item ansible_key.pem
