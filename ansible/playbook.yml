@@ -1,0 +1,50 @@
+---
+# =============================================================================
+# playbook.yml — The recipe for configuring our new Azure VM
+# =============================================================================
+# 
+# WHAT THIS IS:
+# Ansible playbooks describe the desired state of a machine.
+# Instead of running manual commands like `apt-get install nginx`, you write
+# it here. Ansible connects via SSH and makes sure the VM matches this state.
+#
+# WHY DO IT THIS WAY?
+# If you run this playbook 10 times, it only makes changes the first time.
+# The next 9 times, it sees Nginx is already installed and does nothing!
+# =============================================================================
+
+- name: Configure newly provisioned Azure VM
+  # "hosts: all" means run this against whatever IP we pass from the workflow
+  hosts: all
+  
+  # We need root privileges to install software
+  become: yes
+  
+  tasks:
+    - name: 🔄 Update apt cache (like running apt-get update)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: 🌐 Install Nginx web server
+      apt:
+        name: nginx
+        state: present
+
+    - name: ✅ Ensure Nginx service is started and enabled on boot
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: 📄 Create a custom welcome webpage
+      copy:
+        dest: /var/www/html/index.html
+        content: |
+          <html>
+            <body style="font-family: Arial; text-align: center; margin-top: 50px;">
+              <h1>🚀 ServiceNow VM Provisioning Successful!</h1>
+              <h2>Phase 6 Complete: Ansible configured this server!</h2>
+              <p>This VM was requested via ServiceNow, built by Terraform, and configured by Ansible.</p>
+            </body>
+          </html>
