@@ -157,10 +157,30 @@ jobs:
           echo "✅ VM Created! Public IP: $VM_IP"
 
       # -----------------------------------------------------------------------
-      # STEP 8: (Placeholder for Phase 6) Run Ansible to configure the VM
-      # We will fill this in during Phase 6!
+      # STEP 8: Copy Ansible Playbook to Ansible Controller
+      # WHY: The runner is on Windows, so we send the playbook to the Linux
+      # Ansible Controller VM to run it from there.
       # -----------------------------------------------------------------------
-      - name: "🤖 Configure VM with Ansible (Phase 6)"
-        run: |
-          echo "Ansible configuration will be added in Phase 6"
-          echo "Target VM IP: ${{ steps.get_ip.outputs.vm_ip }}"
+      - name: "📂 Copy Playbook to Ansible Controller"
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: "20.219.82.175"
+          username: "azureuser"
+          key: ${{ secrets.ANSIBLE_SSH_KEY }}
+          source: "ansible/playbook.yml"
+          target: "/home/azureuser/vm-provisioning"
+
+      # -----------------------------------------------------------------------
+      # STEP 9: Run Ansible Playbook on Ansible Controller
+      # WHY: The controller SSHs into the NEW VM and installs Nginx.
+      # -----------------------------------------------------------------------
+      - name: "🤖 Configure VM with Ansible"
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: "20.219.82.175"
+          username: "azureuser"
+          key: ${{ secrets.ANSIBLE_SSH_KEY }}
+          script: |
+            export ANSIBLE_HOST_KEY_CHECKING=False
+            cd /home/azureuser/vm-provisioning/ansible
+            ansible-playbook -i "${{ steps.get_ip.outputs.vm_ip }}," -u azureuser playbook.yml
