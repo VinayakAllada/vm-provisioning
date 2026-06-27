@@ -28,7 +28,7 @@ output "vm_name" {
 
 output "resource_group_name" {
   description = "The Resource Group where all VM resources were created"
-  value       = azurerm_resource_group.main.name
+  value       = data.azurerm_resource_group.main.name
 }
 
 output "ssh_command" {
