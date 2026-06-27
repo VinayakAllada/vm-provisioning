@@ -18,13 +18,20 @@
 terraform {
   required_version = ">= 1.9.0"
 
+  backend "azurerm" {
+    resource_group_name  = "internRG"
+    storage_account_name = "tfstatevinayak2026"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
+  }
+
   required_providers {
     azurerm = {
       # WHY: Terraform doesn't know Azure natively. This "provider" is a plugin
       # that translates Terraform commands into actual Azure API calls.
       # Like a translator between Terraform and Azure.
       source  = "hashicorp/azurerm"
-      version = "~> 3.110"
+      version = "~> 3.0"
     }
   }
 }
