@@ -158,22 +158,27 @@ jobs:
 
       # -----------------------------------------------------------------------
       # STEP 8: Run Ansible Playbook via SSH
-      # WHY: The runner is Windows (which can't run Docker actions). So we use
-      # native bash SSH commands to copy the playbook to the Linux Ansible
-      # Controller and execute it.
+      # WHY: The runner is Windows, so we use PowerShell and native scp/ssh.
       # -----------------------------------------------------------------------
       - name: "🤖 Configure VM with Ansible"
-        shell: bash
+        shell: pwsh
         run: |
-          # 1. Save the private key to a file with strict permissions
-          echo "${{ secrets.ANSIBLE_SSH_KEY }}" > ansible_key.pem
-          chmod 600 ansible_key.pem
+          # 1. Save the private key (ASCII encoding avoids Windows BOM issues)
+          $Key = @"
+          ${{ secrets.ANSIBLE_SSH_KEY }}
+          "@
+          Out-File -FilePath ansible_key.pem -InputObject $Key -Encoding ascii
 
-          # 2. Copy the playbook to the Ansible Controller
+          # 2. Windows OpenSSH requires strict file permissions (chmod 600 equivalent)
+          icacls ansible_key.pem /inheritance:r
+          icacls ansible_key.pem /grant "$($env:USERNAME):R"
+
+          # 3. Copy the playbook to the Ansible Controller
           scp -o StrictHostKeyChecking=no -i ansible_key.pem ansible/playbook.yml azureuser@20.219.82.175:/home/azureuser/playbook.yml
 
-          # 3. SSH into the Controller and tell it to run ansible-playbook
-          ssh -o StrictHostKeyChecking=no -i ansible_key.pem azureuser@20.219.82.175 "export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i '${{ steps.get_ip.outputs.vm_ip }},' -u azureuser /home/azureuser/playbook.yml"
+          # 4. SSH into the Controller and tell it to run ansible-playbook
+          $VM_IP = "${{ steps.get_ip.outputs.vm_ip }}"
+          ssh -o StrictHostKeyChecking=no -i ansible_key.pem azureuser@20.219.82.175 "export ANSIBLE_HOST_KEY_CHECKING=False && ansible-playbook -i `"$VM_IP,`" -u azureuser /home/azureuser/playbook.yml"
 
-          # 4. Clean up the private key
-          rm ansible_key.pem
+          # 5. Clean up
+          Remove-Item ansible_key.pem
