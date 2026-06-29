@@ -202,4 +202,4 @@ jobs:
             ip_address = "${{ steps.get_ip.outputs.vm_ip }}"
           } | ConvertTo-Json
 
-          Invoke-RestMethod -Uri "http://localhost:3000/api/callback" -Method Post -Body $body -ContentType "application/json"
+          Invoke-RestMethod -Uri "http://127.0.0.1:3000/api/callback" -Method Post -Body $body -ContentType "application/json"
