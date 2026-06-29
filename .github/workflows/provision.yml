@@ -182,3 +182,24 @@ jobs:
 
           # 5. Clean up
           Remove-Item ansible_key.pem
+
+      # -----------------------------------------------------------------------
+      # STEP 9: Callback to Node.js backend
+      # WHY: We need to notify ServiceNow that provisioning is complete. 
+      # Since the runner is on the same machine as the backend, we can just call localhost!
+      # -----------------------------------------------------------------------
+      - name: "📞 Callback to ServiceNow"
+        shell: pwsh
+        run: |
+          $body = @{
+            status = "success"
+            ritm_number = "${{ github.event.inputs.ritm_number }}"
+            ritm_sys_id = "${{ github.event.inputs.ritm_sys_id }}"
+            vm_name = "${{ github.event.inputs.vm_name }}"
+            os_type = "${{ github.event.inputs.os_type }}"
+            environment = "${{ github.event.inputs.environment }}"
+            owner_email = "${{ github.event.inputs.owner_email }}"
+            ip_address = "${{ steps.get_ip.outputs.vm_ip }}"
+          } | ConvertTo-Json
+
+          Invoke-RestMethod -Uri "http://localhost:3000/api/callback" -Method Post -Body $body -ContentType "application/json"
