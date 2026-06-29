@@ -205,4 +205,4 @@ jobs:
           $body | Out-File -FilePath payload.json -Encoding utf8
 
           # Using curl.exe instead of Invoke-RestMethod to bypass PowerShell corporate proxy/SSL restrictions
-          curl.exe -k -X POST "https://capricorn-shield-tablet.ngrok-free.dev/api/callback" -H "Content-Type: application/json" -d "@payload.json"
+          curl.exe -k -X POST "http://127.0.0.1:3000/api/callback" -H "Content-Type: application/json" -d "@payload.json"
