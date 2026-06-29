@@ -204,5 +204,5 @@ jobs:
           # Write payload to file so curl can read it properly on Windows (ASCII prevents BOM!)
           $body | Out-File -FilePath payload.json -Encoding ascii
 
-          # Using curl.exe instead of Invoke-RestMethod to bypass PowerShell corporate proxy/SSL restrictions
-          curl.exe -k -X POST "http://127.0.0.1:3000/api/callback" -H "Content-Type: application/json" -d "@payload.json"
+          # Using curl.exe with retries and bypassing any potential proxy
+          curl.exe -k --noproxy "*" --retry 3 --retry-connrefused --retry-delay 2 -X POST "http://127.0.0.1:3000/api/callback" -H "Content-Type: application/json" -d "@payload.json"
