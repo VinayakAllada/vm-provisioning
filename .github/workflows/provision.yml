@@ -201,8 +201,8 @@ jobs:
             ip_address = "${{ steps.get_ip.outputs.vm_ip }}"
           } | ConvertTo-Json
 
-          # Write payload to file so curl can read it properly on Windows
-          $body | Out-File -FilePath payload.json -Encoding utf8
+          # Write payload to file so curl can read it properly on Windows (ASCII prevents BOM!)
+          $body | Out-File -FilePath payload.json -Encoding ascii
 
           # Using curl.exe instead of Invoke-RestMethod to bypass PowerShell corporate proxy/SSL restrictions
           curl.exe -k -X POST "http://127.0.0.1:3000/api/callback" -H "Content-Type: application/json" -d "@payload.json"
